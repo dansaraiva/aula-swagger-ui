@@ -1,0 +1,355 @@
+Abaixo extraí do site acima as duas dependências responsáveis por gerar a documentação, abra seu arquivo pom.xml e utilize o código abaixo:
+
+<dependency>
+    <groupId>org.springdoc</groupId>
+    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+    <version>2.0.3</version>
+</dependency>
+
+<dependency>
+    <groupId>org.springdoc</groupId>
+    <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+    <version>2.0.3</version>
+</dependency>
+
+
+
+Execute o projeto e acesse a url: localhost:8080/swagger-ui.html
+
+
+
+Procure o arquivo ProjetoApplication.java, antes da classe ProjetoApplication adicione a seguinte annotation:
+
+@OpenAPIDefinition(
+	info = @Info(
+		title = "Aula documentando APIs",
+		version = "1.0",
+		description = "Documentando uma API básica de gerenciamento de pessoas"
+	)
+)
+
+
+Execute o projeto e acesse a url: localhost:8080/swagger-ui.html, você irá notar que o cabeçalho estará com as características passadas na annotation acima. 
+
+Procure o seu arquivo de controle, no método de cadastro adicione a seguinte estrutura de annotations:
+
+@Operation(summary = "Rota responsável pelo cadastro de pessoas")
+@ApiResponses(value = {
+    @ApiResponse(
+        responseCode = "201", 
+        description = "Pessoa cadastrada com sucesso",
+        content = {
+            @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Pessoa.class)
+            )
+        }
+    ),
+
+    @ApiResponse(
+        responseCode = "400", 
+        description = "Informação inválida",
+        content = {
+            @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Mensagem.class)
+            )
+        }
+    )
+})
+Essa é a estrutura utilizada, abaixo irei explicar em datalhes o que faz cada annotation, mas lembre-se que o método de cadastro possui uma validação, se ocorrer tudo bem o retorno será um 201 (criado), caso alguma informação esteja incorreta o retorno será um 400 (bad request).
+
+@Operation - Essa annotation é uma espécie de título, irá aparecer ao lado do nome da rota;
+@ApiResponses - Informamos os tipos de retorno, nesse exemplo temos dois retornos, sendo eles: 200 e 400. Também podemos implementar uma descrição e o uso da annotation @Content, que especifica o retorno da API, no caso um JSON e o modelo que irá retornar.
+Execute o projeto e acesse a url: localhost:8080/swagger-ui.html, e veja atentamente como ficou a rota de cadastro (POST).
+
+@RestController
+@RequestMapping("/api")
+public class Controle {
+
+    // ***** Disponibilizar um objeto do tipo Mensagem
+    @Autowired
+    private Mensagem mensagem;
+    
+    // ***** Lista de pessoas (simular um banco de dados)
+    private List< Pessoa> lista = new ArrayList< Pessoa>();
+
+    // Código para efetuar o cadastro de pessoas
+    int codigo = 0;
+
+    // ***** Rotas
+    @PostMapping("/cadastrar")
+    @Operation(summary = "Rota responsável pelo cadastro de pessoas")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "201", 
+            description = "Pessoa cadastrada com sucesso",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Pessoa.class)
+                )
+            }
+        ),
+
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Informação inválida",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Mensagem.class)
+                )
+            }
+        )
+    })
+    public ResponseEntity< ?> cadastrar(@RequestBody Pessoa p){
+
+        // Validação do nome (precisa ter pelo menos três caracteres)
+        if(p.getNome().length() < 3){
+            mensagem.setTexto("O nome deve ter pelo menos três caracteres.");
+            return new ResponseEntity<Mensagem>(mensagem, HttpStatus.BAD_REQUEST);
+        
+        // Validação da idade (precisa ser uma idade entre 0 e 120)
+        }else if(p.getIdade() < 0 || p.getIdade() > 120){
+            mensagem.setTexto("Informe uma idade entre 0 e 120");
+            return new ResponseEntity<Mensagem>(mensagem, HttpStatus.BAD_REQUEST);
+        
+        // Efetuar cadastro e retornar um objeto do tipo Pessoa
+        }else{
+            
+            // Incrementar o código
+            this.codigo += 1;
+
+            // Especificar o código no objeto do tipo Pessoa
+            p.setCodigo(codigo);
+
+            // Adicionar o objeto do tipo Pessoa na lista
+            this.lista.add(p);
+
+            // Retorno da API
+            return new ResponseEntity< Pessoa>(p, HttpStatus.CREATED);
+        }
+
+    }
+
+    @GetMapping("/listar")
+    @Operation(summary = "Rota responsável pelo listagem de pessoas")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Listagem de pessoas",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Pessoa.class)
+                )
+            }
+        )
+    })
+    public List< Pessoa> listarPessoas(){
+
+        // Retornar a lista de pessoas cadastradas
+        return this.lista;
+
+    }
+
+    @GetMapping("/obterPessoa/{codigo}")
+    @Operation(summary = "Rota responsável por obter uma pessoa através do código")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Pessoa encontrada",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Pessoa.class)
+                )
+            }
+        ),
+
+        @ApiResponse(
+            responseCode = "404", 
+            description = "Pessoa não encontrada",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Mensagem.class)
+                )
+            }
+        )
+    })
+    public ResponseEntity< ?> obterPessoa(@PathVariable long codigo){
+
+        // Criar um objeto Pessoa
+        Pessoa p = new Pessoa();
+
+        // Realizar pesquisa na lista
+        for (Pessoa pessoa : lista) {
+            if(pessoa.getCodigo() == codigo){
+                p = pessoa;
+            }
+        }
+
+        // Verifica o tipo de retorno
+        if(p.getCodigo() == 0){
+
+            // Especifica um texto para o objeto mensagem
+            mensagem.setTexto("Pessoa não encontrada");
+
+            // Retorno
+            return new ResponseEntity< Mensagem>(mensagem, HttpStatus.NOT_FOUND);
+        }else{
+
+            // Retorno
+            return new ResponseEntity< Pessoa>(p, HttpStatus.OK);
+        }
+
+    }
+
+    @PutMapping("/alterar")
+    @Operation(summary = "Rota responsável pela alteração de dados das pessoas")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Pessoa alterada com sucesso",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Pessoa.class)
+                )
+            }
+        ),
+
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Falha ao localizar o alterar os dados da pessoa",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Mensagem.class)
+                )
+            }
+        )
+    })
+    public ResponseEntity< ?> alterar(@RequestBody Pessoa p){
+
+        // Verificar a posição da pessoa informada na lista
+        int posicaoAlteracao = -1;
+
+        for (int indice = 0; indice < this.lista.size(); indice++) {
+            if(this.lista.get(indice).getCodigo() == p.getCodigo()){
+                posicaoAlteracao = indice;
+            }
+        }
+
+        // Validar se o código informado existe
+        if(posicaoAlteracao == -1){
+
+            mensagem.setTexto("O código informado não existe, tente novamente");
+            return new ResponseEntity< Mensagem>(mensagem, HttpStatus.BAD_REQUEST);
+
+        // Validação do nome (precisa ter pelo menos três caracteres)
+        }else if(p.getNome().length() < 3){
+            mensagem.setTexto("O nome deve ter pelo menos três caracteres");
+            return new ResponseEntity< Mensagem>(mensagem, HttpStatus.BAD_REQUEST);
+        
+        // Validação da idade (precisa ser uma idade entre 0 e 120)
+        }else if(p.getIdade() < 0 || p.getIdade() > 120){
+            mensagem.setTexto("Informe uma idade entre 0 e 120");
+            return new ResponseEntity< Mensagem>(mensagem, HttpStatus.BAD_REQUEST);
+        
+        // Efetuar cadastro e retornar um objeto do tipo Pessoa
+        }else{
+            
+            // Altera o objeto do tipo Pessoa na lista
+            this.lista.set(posicaoAlteracao, p);
+
+            // Retorno da API
+            return new ResponseEntity< Pessoa>(p, HttpStatus.OK);
+        }
+
+    }
+
+    @DeleteMapping("/remover/{codigo}")
+    @Operation(summary = "Rota responsável pela remoção de pessoas")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "Pessoa removida com sucesso",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Mensagem.class)
+                )
+            }
+        ),
+
+        @ApiResponse(
+            responseCode = "400", 
+            description = "Falha ao encontrar a pessoa ou remover",
+            content = {
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Mensagem.class)
+                )
+            }
+        )
+    })
+    public ResponseEntity< Mensagem> remover(@PathVariable int codigo){
+
+        // Verificar a posição da pessoa informada na lista
+        int posicaoRemocao = -1;
+
+        for (int indice = 0; indice < this.lista.size(); indice++) {
+            if(this.lista.get(indice).getCodigo() == codigo){
+                posicaoRemocao = indice;
+            }
+        }
+
+        // Verificação
+        if(posicaoRemocao == -1){
+
+            // Mensagem
+            mensagem.setTexto("O código informado não existe, tente novamente");
+
+            // Retorno
+            return new ResponseEntity< Mensagem>(mensagem, HttpStatus.BAD_REQUEST);
+
+        }else{
+
+            // Remover pessoa da lista
+            this.lista.remove(posicaoRemocao);
+
+            // Mensagem
+            mensagem.setTexto("Pessoa removida com sucesso");
+
+            // Retorno
+            return new ResponseEntity< Mensagem>(mensagem, HttpStatus.OK);
+        }
+
+    }
+}
+
+Procure o modelo Pessoa.java e implemente as seguintes annotations nos atributos nome e idade:
+
+    @NotEmpty
+    @Size(min = 3, max = 20)
+    private String nome;
+    
+    @NotEmpty
+    @Min(value = 0)
+    @Max(value = 120)
+    private int idade;
+
+    
+Annotation	- Desrição
+
+@NotEmpty	- Não aceita informações vazias, exemplo: nome:""
+@NotNull	- Não é possível enviar informações nulas, exemplo: idade:null
+@NotBlank	- O texto deve ter pelo menos um caractere
+@Email	    - Verifique se a informação é um e-mail válida (verifica se tem arroba e ponto)
+@Size	    - Define um número mínimo e máximo de caracteres, annotation exclusiva para textos
+@Min e @Max	- Define um número mínimo e máximo, annotation exclusiva para valores números como: int e double
+@Pattern	- Trabalha com a estrutura Regex, assim é possível criar validações mais compelxas exemplo, aceitar apenas números entre 1 e 10, a annotation ficaria assim: @Pattern(regexp = "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$")
+
